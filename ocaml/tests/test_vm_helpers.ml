@@ -531,6 +531,8 @@ let test_get_group_key_vgpu () =
       match Xapi_vm_helpers.get_group_key ~__context ~vm with
       | `VGPU _ ->
           ()
+      | `AntiAffinity _ ->
+          ()
       | _ ->
           Alcotest.fail "Test-failure: Unexpected Group Key in test"
   )
@@ -547,6 +549,8 @@ let test_get_group_key_netsriov () =
       let vm = make_vm_with_vif ~__context ~network:sriov_network in
       match Xapi_vm_helpers.get_group_key ~__context ~vm with
       | `Netsriov _ ->
+          ()
+      | `AntiAffinity _ ->
           ()
       | _ ->
           Alcotest.fail "Test-failure: Unexpected Group Key in test"
@@ -568,6 +572,8 @@ let test_get_group_key_vgpu_and_netsriov () =
       in
       match Xapi_vm_helpers.get_group_key ~__context ~vm with
       | `VGPU _ ->
+          ()
+      | `AntiAffinity _ ->
           ()
       | _ ->
           Alcotest.fail "Test-failure: Unexpected Group Key in test"

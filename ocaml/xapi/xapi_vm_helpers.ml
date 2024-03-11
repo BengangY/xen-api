@@ -929,6 +929,11 @@ let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
     && host_evacuate_in_progress
   with _ -> false
 
+let vm_has_anti_affinity ~__context ~vm =
+  match Db.VM.get_affinity ~__context ~self:vm with
+  | _ ->
+      Some (`AntiAffinity true)
+
 let vm_has_vgpu ~__context ~vm =
   match Db.VM.get_VGPUs ~__context ~self:vm with
   | [] ->
@@ -948,7 +953,12 @@ let vm_has_sriov ~__context ~vm =
 let ( >>= ) opt f = match opt with Some _ as v -> v | None -> f
 
 let get_group_key ~__context ~vm =
-  match None >>= vm_has_vgpu ~__context ~vm >>= vm_has_sriov ~__context ~vm with
+  match
+    None
+    >>= vm_has_anti_affinity ~__context ~vm
+    >>= vm_has_vgpu ~__context ~vm
+    >>= vm_has_sriov ~__context ~vm
+  with
   | Some x ->
       x
   | None ->
@@ -996,6 +1006,74 @@ let rank_hosts_by_best_vgpu ~__context vgpu visible_hosts =
         hosts
       |> List.map (fun g -> List.map (fun (h, _) -> h) g)
 
+(* Sort and group association list of anti-affinity hosts.
+    Hosts with same count of VMs in the anti-affinity are put in the same group.
+    The result is like below:
+    [[host1, host2], [host3, host4]] *)
+let sort_assoc_hosts assoc_anti_affinity_hosts =
+  assoc_anti_affinity_hosts
+  |> List.fold_left
+       (fun acc (host, count) ->
+         match List.assoc_opt count acc with
+         | Some hosts ->
+             (count, host :: hosts) :: List.remove_assoc count acc
+         | None ->
+             (count, [host]) :: acc
+       )
+       []
+  |> List.sort (fun (c1, _) (c2, _) -> compare c1 c2)
+  |> List.split
+  |> snd
+
+  (* Group all hosts to 3 parts:
+     1. Home server. A list of home server (only one host).
+     2. A list with hosts without running VM in the same anti-affinity group. 
+     3. Several list, each list contains hosts with the same count of running VM in the same anti-affinity group. These lists are sorted by VM's count.
+     Combine these lists into one list. The list is like below:
+     [[host1 (home server)], [host2, host3 (no running anti-affinity VM)], [host4, host4], [host5, host6]]
+     *)
+let rank_hosts_by_anti_affinity ~__context ~vm =
+  let affinity_hosts =
+    [Db.VM.get_affinity ~__context ~self:vm]
+    |> List.filter (fun host -> Db.is_valid_ref __context host)
+  in
+  (* Temporary code, update it when data_model is ready
+     let anti_affinity_group = ... in
+     let anti_affinity_hosts =
+       Db.VM_group.get_VMs ~__context ~self:anti_affinity_group *)
+  let anti_affinity_hosts =
+    Db.VM.get_all ~__context
+    |> List.filter (fun v ->
+           String.starts_with "test-anti-affinity-"
+             (Db.VM.get_name_label ~__context ~self:v)
+       )
+    |> List.map (fun vm -> Db.VM.get_resident_on ~__context ~self:vm)
+    |> List.filter (fun host -> Db.is_valid_ref __context host)
+    |> List.filter (fun host -> not (List.mem host affinity_hosts))
+  in
+
+  (* an association list of (host, <count of VMs in the same anti-affinity group>)*)
+  let assoc_anti_affinity_hosts =
+    anti_affinity_hosts
+    |> List.fold_left
+         (fun acc host ->
+           match List.assoc_opt host acc with
+           | Some count ->
+               (host, count + 1) :: List.remove_assoc host acc
+           | None ->
+               (host, 1) :: acc
+         )
+         []
+  in
+  let sorted_anti_affinity_hosts = sort_assoc_hosts assoc_anti_affinity_hosts in
+  let no_anti_affinity_hosts =
+    Db.Host.get_all ~__context
+    |> List.filter (fun host -> not (List.mem host anti_affinity_hosts))
+    |> List.filter (fun host -> not (List.mem host affinity_hosts))
+  in
+  [affinity_hosts; no_anti_affinity_hosts] @ sorted_anti_affinity_hosts
+  |> List.filter (fun list -> List.length list > 0)
+
 (* Selects a single host from the set of all hosts on which the given [vm] can boot.
    Raises [Api_errors.no_hosts_available] if no such host exists.
    1.Take Vgpu or Network SR-IOV as a group_key for group all hosts into host list list
@@ -1011,6 +1089,8 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
     match group_key with
     | `Other ->
         [all_hosts]
+    | `AntiAffinity _ ->
+        rank_hosts_by_anti_affinity ~__context ~vm
     | `VGPU vgpu ->
         let can_host_vm ~__context host vm =
           try
