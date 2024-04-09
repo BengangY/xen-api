@@ -6022,7 +6022,6 @@ module VM_group = struct
           uid _vm_group
         ; namespace ~name:"name" ~contents:(names None RW) ()
         ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:placement_type "placement"
-            ~default_value:(Some (VEnum "normal"))
             "The placement type of the VM group"
         ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs"
             "The list of VMs currently associated with the group"
