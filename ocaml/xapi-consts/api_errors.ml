@@ -1299,3 +1299,5 @@ let telemetry_next_collection_too_late = "TELEMETRY_NEXT_COLLECTION_TOO_LATE"
 
 (* FIPS/CC_PREPARATIONS *)
 let illegal_in_fips_mode = "ILLEGAL_IN_FIPS_MODE"
+
+let vm_can_only_belong_to_one_anti_affinity_group = "VM_CAN_ONLY_BELONG_TO_ONE_ANTI_AFFINITY_GROUP"

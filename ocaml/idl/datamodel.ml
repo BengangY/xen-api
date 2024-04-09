@@ -5975,6 +5975,61 @@ module VM_appliance = struct
       ()
 end
 
+module VM_group = struct
+  let placement_type =
+    Enum
+      ( "vm_placement_type"
+      , [
+          ("anti_affinity", "VM anti-affinity group")
+        ; ("normal", "Normal type group")
+        ]
+      )
+
+  let create =
+    call ~name:"create" ~in_oss_since:None ~lifecycle:[]
+      ~doc:"Create a new VM group"
+      ~params:
+        [
+          (String, "name_label", "The name of the VM group")
+        ; (String, "name_description", "The description of the VM group")
+        ; (placement_type, "placement", "The placement type of the VM group")
+        ]
+      ~result:(Ref _vm_group, "The ref of the created VM group record")
+      ~allowed_roles:(_R_VM_ADMIN ++ _R_CLIENT_CERT)
+      ()
+
+  let destroy =
+    call ~name:"destroy" ~in_oss_since:None ~lifecycle:[]
+      ~doc:"Remove the VM group record from the database"
+      ~params:
+        [
+          ( Ref _vm_group
+          , "self"
+          , "The Ref of the VM group to be removed from the database"
+          )
+        ]
+      ~allowed_roles:(_R_VM_ADMIN ++ _R_CLIENT_CERT)
+      ()
+
+  let t =
+    create_obj ~name:_vm_group ~descr:"A VM group" ~doccomments:[]
+      ~gen_constructor_destructor:false ~gen_events:true ~in_db:true
+      ~lifecycle:[] ~persist:PersistEverything ~in_oss_since:None
+      ~messages_default_allowed_roles:(_R_VM_ADMIN ++ _R_CLIENT_CERT)
+      ~messages:[create; destroy]
+      ~contents:
+        [
+          uid _vm_group
+        ; namespace ~name:"name" ~contents:(names None RW) ()
+        ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:placement_type "placement"
+            ~default_value:(Some (VEnum "normal"))
+            "The placement type of the VM group"
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs"
+            "The list of VMs currently associated with the group"
+        ]
+      ()
+end
+
 module DR_task = struct
   (* DR_task *)
   let create =
@@ -7760,6 +7815,7 @@ let all_system =
   ; VMPP.t
   ; VMSS.t
   ; VM_appliance.t
+  ; VM_group.t
   ; DR_task.t
   ; Datamodel_host.t
   ; Host_crashdump.t
@@ -7896,6 +7952,7 @@ let all_relations =
   ; ((_network_sriov, "physical_PIF"), (_pif, "sriov_physical_PIF_of"))
   ; ((_network_sriov, "logical_PIF"), (_pif, "sriov_logical_PIF_of"))
   ; ((_certificate, "host"), (_host, "certificates"))
+  ; ((_vm, "groups"), (_vm_group, "VMs"))
   ]
 
 let update_lifecycles =
@@ -8027,6 +8084,7 @@ let expose_get_all_messages_for =
   ; _vmpp
   ; _vmss
   ; _vm_appliance
+  ; _vm_group
   ; _pci
   ; _pgpu
   ; _gpu_group

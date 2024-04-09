@@ -1444,6 +1444,17 @@ let set_appliance ~__context ~self ~value =
   (* Update the VM's allowed operations - this will update the new appliance's operations, if valid. *)
   update_allowed_operations ~__context ~self
 
+let set_groups ~__context ~self ~value =
+  let anti_affinity_group_cnt =
+    value
+    |> List.filter (fun group -> Db.VM_group.get_placement ~__context ~self:group = `anti_affinity)
+    |> List.length
+  in
+  if anti_affinity_group_cnt > 1 then
+    raise
+      (Api_errors.Server_error (Api_errors.vm_can_only_belong_to_one_anti_affinity_group, [])) ;
+  Db.VM.set_groups ~__context ~self ~value
+
 let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
   let open Vpx in
   let print_jobInstance (j : Vpx.jobInstance) =

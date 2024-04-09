@@ -1188,3 +1188,18 @@ let update_sync_frequency_of_string s =
       `weekly
   | _ ->
       raise (Record_failure ("Expected 'daily', 'weekly', got " ^ s))
+
+let vm_placement_type_to_string = function
+  | `normal ->
+      "normal"
+  | `anti_affinity ->
+      "anti-affinity"
+
+let vm_placement_type_of_string a =
+  match String.lowercase_ascii a with
+  | "normal" ->
+      `normal
+  | "anti-affinity" ->
+      `anti_affinity
+  | s ->
+      raise (Record_failure ("Invalid VM placement type, got " ^ s))

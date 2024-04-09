@@ -1968,6 +1968,9 @@ let _ =
   error Api_errors.host_evacuation_is_required ["host"]
     ~doc:"Host evacuation is required before applying updates." () ;
 
+  error Api_errors.vm_can_only_belong_to_one_anti_affinity_group []
+    ~doc:"The VM can only belong to one anti-affinity group." () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:
