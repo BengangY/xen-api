@@ -36,3 +36,5 @@ go.sum
 doc/public
 
 .DS_Store
+.vscode/settings.json
+

@@ -1311,6 +1311,8 @@ let invalid_gpgkey_path = add_error "INVALID_GPGKEY_PATH"
 
 let repository_already_exists = add_error "REPOSITORY_ALREADY_EXISTS"
 
+let bundle_repository_exists = "BUNDLE_REPOSITORY_EXISTS"
+
 let repository_is_in_use = add_error "REPOSITORY_IS_IN_USE"
 
 let repository_cleanup_failed = add_error "REPOSITORY_CLEANUP_FAILED"
